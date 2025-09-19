@@ -1,0 +1,86 @@
+# Azure Container Apps Deployment Configuration
+
+# This Docker Compose override file is optimized for Azure Container Apps
+# Use this with: docker-compose -f docker-compose.yml -f azure/docker-compose.azure.yml
+
+version: "3.8"
+
+services:
+  # Backend service optimized for Azure Container Apps
+  backend:
+    environment:
+      # Azure Container Apps specific environment variables
+      WEBSITES_PORT: 8000
+      ASPNETCORE_URLS: http://+:8000
+      
+      # Azure managed database (use Azure Database for PostgreSQL)
+      DATABASE_URL: ${AZURE_POSTGRESQL_CONNECTION_STRING}
+      
+      # Azure Key Vault integration
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      
+      # Managed Identity (preferred over service principal)
+      AZURE_USE_MANAGED_IDENTITY: "true"
+      
+      # Azure Storage for file uploads
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT}
+      AZURE_STORAGE_CONTAINER: flashcard-uploads
+      
+      # Application Insights for monitoring
+      APPINSIGHTS_CONNECTION_STRING: ${APPINSIGHTS_CONNECTION_STRING}
+      
+      # Scaling configuration
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+      UVICORN_MAX_WORKERS: ${UVICORN_MAX_WORKERS:-4}
+    
+    # Remove volumes for stateless deployment
+    volumes: []
+    
+    # Resource limits (will be overridden by Container Apps configuration)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Frontend service optimized for Azure Container Apps
+  frontend:
+    environment:
+      # Azure Container Apps specific
+      WEBSITES_PORT: 80
+      
+      # Backend URL (will be set to actual Container App URL)
+      REACT_APP_API_URL: ${AZURE_BACKEND_URL}
+      
+      # Azure Application Insights
+      REACT_APP_APPINSIGHTS_CONNECTION_STRING: ${APPINSIGHTS_CONNECTION_STRING}
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Remove PostgreSQL service (use Azure Database for PostgreSQL instead)
+  postgres:
+    profiles:
+      - local-only
+
+  # Remove Redis service (use Azure Cache for Redis instead)
+  redis:
+    profiles:
+      - local-only
+
+  # Remove Nginx service (Azure Container Apps handles load balancing)
+  nginx:
+    profiles:
+      - local-only

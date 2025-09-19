@@ -1,0 +1,16 @@
+{
+  "name": "flash-local",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "backend": "powershell -ExecutionPolicy Bypass -File scripts/start-backend.ps1",
+    "frontend": "cd frontend; npm start",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "recharts": "^3.2.1"
+  }
+}

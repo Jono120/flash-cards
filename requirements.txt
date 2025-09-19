@@ -1,0 +1,24 @@
+fastapi
+uvicorn
+
+sqlalchemy
+psycopg2-binary     # PostgreSQL adapter
+alembic            # Migrations
+
+python-multipart    # File uploads
+pydantic            # Data validation
+
+google-generativeai  # For Gemini API integration
+
+python-pptx        # PowerPoint parsing
+python-docx         # Word parsing
+PyPDF2              # PDF parsing
+PyMuPDF            # For fitz (PDF processing)
+
+python-dateutil
+requests
+
+passlib[bcrypt]     # Secure password hashing
+python-jose[cryptography]   # JWT auth
+python-dotenv       # Environment variable management
+httpx               # async OAuth calls

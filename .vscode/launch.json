@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Backend (Uvicorn)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "uvicorn", "backend.main:app", "--reload"],
+      "console": "integratedTerminal",
+      "env": {
+        "DATABASE_URL": "sqlite:///./flashcards.db"
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "Attach to debugpy",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${workspaceFolder}"
+        }
+      ]
+    }
+  ]
+}
