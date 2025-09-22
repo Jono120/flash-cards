@@ -1,10 +1,73 @@
 {
 	"version": "2.0.0",
+	"inputs": [
+		{
+			"id": "backendPort",
+			"type": "promptString",
+			"description": "Backend port",
+			"default": "8006"
+		},
+		{
+			"id": "frontendPort",
+			"type": "promptString",
+			"description": "Frontend port",
+			"default": "3000"
+		}
+	],
 	"tasks": [
 		{
-			"label": "Run Backend Server",
+			"label": "Run Backend (venv)",
 			"type": "shell",
-			"command": "uvicorn backend.main:app --reload",
+			"command": "${workspaceFolder}/env/Scripts/python.exe",
+			"args": [
+				"-m",
+				"uvicorn",
+				"backend.main:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"${input:backendPort}",
+				"--reload"
+			],
+			"options": {
+				"env": {
+					"PYTHONUNBUFFERED": "1",
+							"ENVIRONMENT": "development",
+							"USE_OLLAMA": "true",
+							"OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+							"OLLAMA_MODEL": "phi3:mini"
+				},
+				"cwd": "${workspaceFolder}"
+			},
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"start"
+			],
+					"options": {
+						"cwd": "${workspaceFolder}/frontend",
+						"env": {
+							"PORT": "${input:frontendPort}",
+							"BROWSER": "none",
+							"REACT_APP_API_URL": "http://127.0.0.1:${input:backendPort}"
+						}
+					},
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start App (Backend + Frontend)",
+			"dependsOn": [
+				"Run Backend (venv)",
+				"Run Frontend"
+			],
+			"dependsOrder": "parallel",
 			"group": "build"
 		}
 	]

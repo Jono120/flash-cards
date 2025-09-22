@@ -7,8 +7,13 @@ from sqlalchemy.orm import Session
 from .. import crud, schemas
 
 # Load API key from environment for local dev
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Ollama configuration (for local LLM)
+USE_OLLAMA = os.getenv("USE_OLLAMA", "false").lower() == "true"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 
 def _extract_text_sync(file: UploadFile) -> str:
@@ -16,7 +21,7 @@ def _extract_text_sync(file: UploadFile) -> str:
     # Lazy import to avoid hard dependency at module import time
     from . import extractors  # type: ignore
 
-    filename = file.filename.lower()
+    filename = (file.filename or "").lower()
     contents = file.file.read()
     temp_path = f"uploads/_tmp_{os.getpid()}_{os.path.basename(filename)}"
     os.makedirs(os.path.dirname(temp_path), exist_ok=True)
@@ -66,36 +71,62 @@ def parse_flashcards_from_response(content: str):
     return []
 
 
-def generate_flashcards_from_chunk(chunk: str):
-    if not GEMINI_API_KEY:
-        # In local dev, allow running without external API by returning empty
-        return []
+def _prompt_text(chunk: str) -> str:
+    return f"""
+Create up to 5 flashcards from this text.
+Return ONLY JSON in this exact format (an array of objects):
+[
+  {{"question": "Q1", "answer": "A1"}},
+  {{"question": "Q2", "answer": "A2"}}
+]
 
-    headers = {"Content-Type": "application/json"}
-    prompt = f"""
-                Create up to 5 flashcards from this text.
-                Return ONLY JSON in this format:
-                [
-                  {{"question": "Q1", "answer": "A1"}},
-                  {{"question": "Q2", "answer": "A2"}}
-                ]
+Text:
+{chunk}
+"""
 
-                Text:
-                {chunk}
-                """
 
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
-
+def _generate_via_ollama(chunk: str):
     try:
-        response = requests.post(
-            f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=data, timeout=30
-        )
-        response.raise_for_status()
-        result = response.json()
-        content = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": _prompt_text(chunk),
+            "stream": False
+        }
+        resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("response", "")
         return parse_flashcards_from_response(content)
     except Exception:
         return []
+
+
+# def _generate_via_gemini(chunk: str):
+#     if not GEMINI_API_KEY:
+#         return []
+#     headers = {"Content-Type": "application/json"}
+#     data = {"contents": [{"parts": [{"text": _prompt_text(chunk)}]}]}
+#     try:
+#         response = requests.post(
+#             f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", headers=headers, json=data, timeout=30
+#         )
+#         response.raise_for_status()
+#         result = response.json()
+#         content = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+#         return parse_flashcards_from_response(content)
+#     except Exception:
+#         return []
+
+
+def generate_flashcards_from_chunk(chunk: str):
+    if USE_OLLAMA:
+        cards = _generate_via_ollama(chunk)
+        if cards:
+            return cards
+        # Fallback to Gemini if Ollama produced nothing
+        return _generate_via_ollama(chunk)
+    else:
+        return _generate_via_ollama(chunk)
 
 
 async def process_file(file: UploadFile, user_id: int, db: Session):

@@ -1,5 +1,6 @@
 # backend/main.py
 from fastapi import FastAPI, UploadFile, Depends, HTTPException, File, Form
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -29,22 +30,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# If build exists, serve it (lets users open http://localhost:8000/)
-if os.path.isdir(FRONTEND_BUILD_DIR):
-    app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="frontend")
-
-# Health endpoint for readiness checks
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-# Dependency for DB session
+# Dependency for DB session (defined before routes that depend on it)
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+# Liveness and readiness endpoints
+@app.get("/live")
+def live():
+    # If the app process is up and FastAPI can serve requests, liveness is OK
+    return {"status": "alive"}
+
+@app.get("/ready")
+def ready(db: Session = Depends(get_db)):
+    # Verify DB connectivity with a simple ORM query
+    try:
+        _ = db.query(models.User).first()
+        return {"status": "ready"}
+    except Exception as e:
+        # If DB is not reachable or tables missing, report not ready
+        return JSONResponse(status_code=503, content={"status": "not-ready", "detail": str(e)})
+
+# (get_db already defined above)
 
 # Primary upload endpoint that generates flashcards
 @app.post("/upload/")
@@ -148,6 +158,8 @@ def get_daily(user_id: int, db: Session = Depends(get_db)):
 @app.post("/upload/chunks")
 async def upload_file_chunks(user_id: int = Form(...), file: UploadFile = File(...)):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
@@ -171,3 +183,7 @@ async def upload_file_chunks(user_id: int = Form(...), file: UploadFile = File(.
     chunks = chunk_text(text)
 
     return {"chunks": chunks, "count": len(chunks)}
+
+# If build exists, serve it last so API routes take precedence
+if os.path.isdir(FRONTEND_BUILD_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="frontend")

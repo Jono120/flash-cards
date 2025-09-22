@@ -1,9 +1,33 @@
 {
   "version": "0.2.0",
+  "inputs": [
+    {
+      "id": "frontendPort",
+      "type": "promptString",
+      "description": "Frontend port",
+      "default": "3000"
+    }
+  ],
   "configurations": [
     {
+      "name": "Start App (Tasks) + Open Browser",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:${input:frontendPort}",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "Start App (Backend + Frontend)"
+    },
+    {
+      "name": "Start Frontend (Task) + Open Browser",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:${input:frontendPort}",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "Run Frontend"
+    },
+    {
       "name": "Run Backend (Uvicorn)",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
       "args": ["-m", "uvicorn", "backend.main:app", "--reload"],
@@ -15,7 +39,7 @@
     },
     {
       "name": "Attach to debugpy",
-      "type": "python",
+      "type": "debugpy",
       "request": "attach",
       "connect": {
         "host": "localhost",
